@@ -1,7 +1,7 @@
 const Server = require('socket.io');
 const server = require('http').Server();
 
-module.exports = (PORT = 3030)=> {
+module.exports = (PORT = 6842)=> {
 
     server.listen(PORT);
 
