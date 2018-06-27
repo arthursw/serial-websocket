@@ -1,93 +1,128 @@
-const Server = require('socket.io');
-const server = require('http').Server();
+const WebSocket = require('ws');
+
+send = (ws, type, data)=> {
+    ws.send( JSON.stringify({type: type, data: data}) );
+}
 
 module.exports = (PORT = 6842)=> {
 
-    server.listen(PORT);
 
-    const io = Server(server);
+    const wssim = new WebSocket.Server({ port: (PORT+1) });
+    const wss = new WebSocket.Server({ port: PORT });
+    let wsSimulator = null;
+    let wsClient = null;
 
     var SerialPort = require('serialport');
     var port = null;
 
-    let listPorts = ()=> {
+    let listPorts = (ws)=> {
 
         console.log('List ports...');
         SerialPort.list().then((data)=> {
             console.log(data);
             if(data != null) {
-                io.emit('list', data);
+                send(ws, 'list', data)
             }
         })
     };
 
+    let closePort = ()=> {
+        if(port != null) {
+            console.log('Closing port...');
+            port.close((result)=> {
+                console.log('Port closed: ', result);
+                port = null;
+            });
+        } else {
+            console.log('Could not close: no opened serial port.');
+        }
+    }
+
     console.log('Serial websocket ready');
 
-    io.on('connection', (socket)=> {
-        console.log('New connection: ');
-        console.log(socket);
+    wss.on('connection', (ws)=> {
+        wsClient = ws;
+        console.log('New connection');
 
-        socket.on('data', (data)=> {
-            console.log('write: ', data);
-            if(port == null) {
-                io.emit('error', 'Could not write data: no opened serial port.')
-                return;
-            }
-            port.write(data, function(err) {
-                if (err) {
-                    console.log('Error on write: ', err.message);
-                    io.emit('error', err.message);
-                    return;
-                }
-                console.log('message written');
-            });
-        });
-
-        socket.on('list', (data)=> {
-            listPorts();
-        });
-
-        socket.on('open', (data)=> {
+        ws.on('message', (message)=> {
+            let json = JSON.parse(message);
+            let type = json.type;
+            let data = json.data;
             
-            console.log('Opening port ' + data.name + ', at ' + data.baudRate);
+            if(type == 'data') {
 
-            port = new SerialPort(data.name, { baudRate: data.baudRate, lock:false }, function (err) {
-                if (err) {
-                    console.log('Error: ', err.message);
-                    io.emit('error', err.message);
+                if(wsSimulator != null) {
+                    wsSimulator.send(data);
+                    return
+                }
+
+                if(port == null) {
+                    send(ws, 'error', 'Could not write data: no opened serial port.');
                     return;
                 }
-                console.log('Connection established.');
-                io.emit('opened');
-            });
-
-            // port.pipe(parser);
-
-            port.on('error', function(err) {
-                console.log('Error: ', err.message);
-                io.emit('error', err.message);
-            })
-
-            port.on('data', function (data) {
-                console.log('Received:\t', data.toString('utf8'));
-                io.emit('data', data.toString('utf8'));
-            });
-        });
-
-        socket.on('close', ()=> {
-            if(port != null) {
-                console.log('Closing port...');
-                port.close((result)=> {
-                    console.log(result);
+                port.write(data, (err)=> {
+                    if (err) {
+                        console.log('Error on write: ', err.message);
+                        send(ws, 'error', err.message);
+                        return;
+                    }
                 });
-            } else {
-                console.log('Could not close: no opened serial port.');
+
+            } else if(type == 'list') {
+                listPorts(ws);
+            } else if(type == 'open') {
+
+                console.log('Opening port ' + data.name + ', at ' + data.baudRate);
+
+                port = new SerialPort(data.name, { baudRate: data.baudRate, lock:false }, (err)=> {
+                    if (err) {
+                        console.log('Error: ', err.message);
+                        ws.send({type: 'error', data: err.message});
+                        return;
+                    }
+                    console.log('Connection established.');
+                    send(ws, 'opened');
+                });
+
+                port.on('error', (err)=> {
+                    console.log('Error: ', err.message);
+                    send(ws, 'error', err.message);
+                })
+
+                port.on('data', (data)=> {
+                    send(ws, 'data', data.toString('utf8'));
+                });
+
+            } else if(type == 'close') {
+                closePort();
             }
         })
 
-        
+        ws.on('open', (data)=> {
+            console.log('WebSocket opened');
+        });
 
-        listPorts();
+        ws.on('close', ()=> {
+            wsClient = null;
+            closePort()
+        })
+
+        listPorts(ws);
     });
 
+    // SIMULATOR
+
+
+    wssim.on('connection', (ws)=> {
+
+        wsSimulator = ws;
+
+        ws.on('message', (data) => {
+            send(wsClient, 'data', data)
+        });
+
+        ws.on('close', ()=> {
+            wsSimulator = null;
+        })
+    });
 }

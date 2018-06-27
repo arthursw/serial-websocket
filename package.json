@@ -8,10 +8,9 @@
   },
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-  },
+  "devDependencies": {},
   "dependencies": {
     "serialport": "^6.2.0",
-    "socket.io": "^2.1.1"
+    "ws": "^5.2.0"
   }
 }
