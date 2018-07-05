@@ -31,6 +31,7 @@ module.exports = (PORT = 6842)=> {
             console.log('Closing port...');
             port.close((result)=> {
                 console.log('Port closed: ', result);
+                send(ws, 'closed');
                 port = null;
             });
         } else {
@@ -115,6 +116,8 @@ module.exports = (PORT = 6842)=> {
 
     wssim.on('connection', (ws)=> {
 
+        console.log('Simulator connected')
+        
         wsSimulator = ws;
 
         ws.on('message', (data) => {
