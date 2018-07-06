@@ -18,7 +18,10 @@ module.exports = (PORT = 6842)=> {
     var port = null;
 
     let listPorts = (ws)=> {
-
+        if(port != null) {
+            send(ws, 'warning', 'Port is already opened');
+            return
+        }
         console.log('List ports...');
         SerialPort.list().then((data)=> {
             console.log(data);
@@ -40,7 +43,7 @@ module.exports = (PORT = 6842)=> {
             console.log('Could not close: no opened serial port.');
         }
     }
-
+    
     console.log('Serial websocket ready');
 
     wss.on('connection', (ws)=> {
@@ -63,6 +66,7 @@ module.exports = (PORT = 6842)=> {
                     send(ws, 'error', 'Could not write data: no opened serial port.');
                     return;
                 }
+
                 port.write(data, (err)=> {
                     if (err) {
                         console.log('Error on write: ', err.message);
@@ -73,7 +77,14 @@ module.exports = (PORT = 6842)=> {
 
             } else if(type == 'list') {
                 listPorts(ws);
+            } else if(type == 'isConnected') {
+                send(ws, port != null ? 'connected' : 'notConnected');
             } else if(type == 'open') {
+                
+                if(port != null) {
+                    send(ws, 'warning', 'Port is already opened');
+                    return
+                }
 
                 console.log('Opening port ' + data.name + ', at ' + data.baudRate);
 
@@ -89,11 +100,11 @@ module.exports = (PORT = 6842)=> {
 
                 port.on('error', (err)=> {
                     console.log('Error: ', err.message);
-                    send(ws, 'error', err.message);
+                    send(wsClient, 'error', err.message);
                 })
 
                 port.on('data', (data)=> {
-                    send(ws, 'data', data.toString('utf8'));
+                    send(wsClient, 'data', data.toString('utf8'));
                 });
 
             } else if(type == 'close') {
@@ -107,7 +118,7 @@ module.exports = (PORT = 6842)=> {
 
         ws.on('close', ()=> {
             wsClient = null;
-            closePort(ws);
+            // closePort(ws);
         })
 
         listPorts(ws);
