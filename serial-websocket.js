@@ -1,7 +1,9 @@
 const WebSocket = require('ws');
 
 send = (ws, type, data)=> {
-    ws.send( JSON.stringify({type: type, data: data}) );
+    if(ws != null) {
+        ws.send( JSON.stringify({type: type, data: data}) );
+    }
 }
 
 module.exports = (PORT = 6842)=> {
@@ -26,7 +28,7 @@ module.exports = (PORT = 6842)=> {
         })
     };
 
-    let closePort = ()=> {
+    let closePort = (ws)=> {
         if(port != null) {
             console.log('Closing port...');
             port.close((result)=> {
@@ -95,7 +97,7 @@ module.exports = (PORT = 6842)=> {
                 });
 
             } else if(type == 'close') {
-                closePort();
+                closePort(ws);
             }
         })
 
@@ -105,7 +107,7 @@ module.exports = (PORT = 6842)=> {
 
         ws.on('close', ()=> {
             wsClient = null;
-            closePort()
+            closePort(ws);
         })
 
         listPorts(ws);
