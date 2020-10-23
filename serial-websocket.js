@@ -1,4 +1,6 @@
 const WebSocket = require('ws');
+const fs = require('fs');
+const readline = require('readline');
 
 let wssSimulator = null;
 let wssController = null;
@@ -38,6 +40,12 @@ let portCreationCallback = (err)=> {
 
 let onPortData = (data)=> {
     let message = data.toString('utf8')
+    if(lineReader != null) {
+        if(message == continueMessage) {
+            lineReader.resume();
+        }
+        return
+    }
     send(wsController, 'data', message)
 }
 
@@ -55,10 +63,6 @@ let portWriteCallback = (err)=> {
 }
 
 let listPorts = ()=> {
-    if(port != null) {
-        send(wsController, 'warning', 'Port is already opened');
-        return
-    }
     console.log('List ports...');
     SerialPort.list().then(listPortsCallback)
 };
@@ -94,6 +98,7 @@ let onControllerConnection = (ws)=> {
 }
 
 let getPortInfo = ()=> {
+    console.log('port info', port)
     return port != null ? {baudRate: port.baudRate, isOpen: port.isOpen, path: port.path} : {}
 }
 
@@ -109,6 +114,11 @@ let onControllerMessage = (message)=> {
     }
     
     if(type == 'data') {
+        
+        if(writeStream != null) {
+            writeStream.write(data);
+            return
+        }
 
         if(wsSimulator != null) {
             wsSimulator.send(data);
@@ -120,10 +130,27 @@ let onControllerMessage = (message)=> {
             return;
         }
 
+        if(lineReader != null) {
+            send(wsController, 'error', 'Already printing file.');
+            return;
+        }
+
         port.write(data, portWriteCallback);
 
     } else if(type == 'list') {
         listPorts(wsController);
+    } else if(type == 'write-file') {
+        writeFile(data);
+    } else if(type == 'close-file') {
+        closeFile();
+    } else if(type == 'list-files') {
+        listFiles();
+    } else if(type == 'print-file') {
+        printFile(data);
+    } else if(type == 'cancel-print-file') {
+        cancelPrintFile();
+    } else if(type == 'delete-file') {
+        deleteFile(data);
     } else if(type == 'is-connected') {
         send(wsController, port != null ? 'connected' : wsSimulator ? 'connected-to-simulator' : 'not-connected', getPortInfo());
     } else if(type == 'open') {
@@ -146,6 +173,81 @@ let onControllerOpen = (data)=> {
 
 let onControllerClose = (data)=> {
     wsController = null;
+}
+
+// File
+
+let writeStream = null;
+const folderName = 'drawings/';
+const continueMessage = 'READY';
+let lineReader = null;
+
+let writeFile = (fileName)=> {
+    if(lineReader != null) {
+        send(wsController, 'error', 'Already printing file.');
+        return;
+    }
+    writeStream = fs.createWriteStream(folderName + fileName);
+    writeStream.on('finish', () => {  
+        send(wsController, 'info', 'File written.');
+        writeStream = null;
+    });
+}
+
+let closeFile = ()=> {
+    if(writeStream != null) {
+        writeStream.end();
+    }
+}
+
+let listFiles = ()=> {
+    fs.readdir(folderName, (err, files) => {
+        send(wsController, 'files', files);
+    });
+}
+
+
+let printFile = (fileName)=> {
+    if(port == null) {
+        send(wsController, 'error', 'Could not print data: no opened serial port.');
+        return;
+    }
+
+    lineReader = readline.createInterface( { input: fs.createReadStream(folderName + fileName) } );
+
+    lineReader.on('line', function (line) {
+        lineReader.pause();
+        if(port == null) {
+            send(wsController, 'error', 'Could not print data: no opened serial port (while printing).');
+            return;
+        }
+
+        port.write(data, portWriteCallback);
+    });
+
+
+    lineReader.on('close', function () {
+        send(wsController, 'file-printed', fileName);
+        lineReader = null;
+    })
+}
+
+let cancelPrintFile = ()=> {
+    if(lineReader != null) {
+        lineReader.close();
+    }
+}
+
+let deleteFile = (fileName)=> {
+    fs.unlink(folderName + fileName, (err) => {
+        if (err) {
+            send(wsController, 'error', 'Error while deleting file ' + fileName);
+            send(wsController, 'error', err);
+            return
+        };
+        send(wsController, 'info', fileName + ' deleted.');
+        listFiles();
+    });
 }
 
 // SIMULATOR
