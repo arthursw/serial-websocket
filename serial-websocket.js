@@ -10,6 +10,7 @@ let wsController = null;
 
 var SerialPort = require('serialport');
 var port = null;
+var ports = [];
 
 send = (ws, type, data)=> {
     if(ws != null) {
@@ -20,7 +21,10 @@ send = (ws, type, data)=> {
 let createPort = (data)=> {
     
     console.log('Opening port ' + data.name + ', at ' + data.baudRate)
-
+    if(ports instanceof Array && !ports.includes(data.name)) {
+        console.error('trying to connect to an unexisting port: ', data.name)
+    }
+    
     port = new SerialPort(data.name, { baudRate: data.baudRate, lock:false }, portCreationCallback)
 
     port.on('data', onPortData)
@@ -70,8 +74,11 @@ let listPorts = ()=> {
 let listPortsCallback = (data)=> {
     console.log(data);
     if(data != null) {
+        if(data instanceof Array) {
+            ports = data
+        }
         send(wsController, 'list', data)
-    }    
+    }
 }
 
 let closePort = ()=> {
