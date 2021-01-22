@@ -14,7 +14,7 @@ var ports = [];
 
 send = (ws, type, data)=> {
     if(ws != null) {
-        ws.send( JSON.stringify({type: type, data: data}) );
+        ws.send( JSON.stringify({type: type, data: data, time: Date.now()}) );
     }
 }
 
@@ -142,6 +142,7 @@ let onControllerMessage = (message)=> {
             return;
         }
 
+        send(wsController, 'sent', data);
         port.write(data, portWriteCallback);
 
     } else if(type == 'list') {

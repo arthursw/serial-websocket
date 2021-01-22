@@ -9,9 +9,8 @@
   },
   "author": "",
   "license": "ISC",
-  "devDependencies": {},
   "dependencies": {
-    "serialport": "^9.0.2",
+    "serialport": "^9.0.6",
     "ws": "^5.2.0"
   }
 }
