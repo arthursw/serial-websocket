@@ -1,3 +1,4 @@
+var najax = $ = require('najax')
 const WebSocket = require('ws');
 const fs = require('fs');
 const readline = require('readline');
@@ -44,12 +45,6 @@ let portCreationCallback = (err)=> {
 
 let onPortData = (data)=> {
     let message = data.toString('utf8')
-    if(lineReader != null) {
-        if(message == continueMessage) {
-            lineReader.resume();
-        }
-        return
-    }
     send(wsController, 'data', message)
 }
 
@@ -122,10 +117,10 @@ let onControllerMessage = (message)=> {
     
     if(type == 'data') {
         
-        if(writeStream != null) {
-            writeStream.write(data);
-            return
-        }
+        // if(writeStream != null) {
+        //     writeStream.write(data);
+        //     return
+        // }
 
         if(wsSimulator != null) {
             wsSimulator.send(data);
@@ -137,28 +132,15 @@ let onControllerMessage = (message)=> {
             return;
         }
 
-        if(lineReader != null) {
-            send(wsController, 'error', 'Already printing file.');
-            return;
-        }
-
         send(wsController, 'sent', data);
         port.write(data, portWriteCallback);
+    
+    } else if(type == 'comme-un-dessein-start') {
+        
+        startCommeUnDessein(wsController);
 
     } else if(type == 'list') {
         listPorts(wsController);
-    } else if(type == 'write-file') {
-        writeFile(data);
-    } else if(type == 'close-file') {
-        closeFile();
-    } else if(type == 'list-files') {
-        listFiles();
-    } else if(type == 'print-file') {
-        printFile(data);
-    } else if(type == 'cancel-print-file') {
-        cancelPrintFile();
-    } else if(type == 'delete-file') {
-        deleteFile(data);
     } else if(type == 'is-connected') {
         send(wsController, port != null ? 'connected' : wsSimulator ? 'connected-to-simulator' : 'not-connected', getPortInfo());
     } else if(type == 'open') {
@@ -183,80 +165,269 @@ let onControllerClose = (data)=> {
     wsController = null;
 }
 
-// File
+// Comme Un Dessein
 
-let writeStream = null;
-const folderName = 'drawings/';
-const continueMessage = 'READY';
-let lineReader = null;
+// const commeundesseinAjaxURL = '/ajaxCallNoCSRF/'
 
-let writeFile = (fileName)=> {
-    if(lineReader != null) {
-        send(wsController, 'error', 'Already printing file.');
-        return;
-    }
-    writeStream = fs.createWriteStream(folderName + fileName);
-    writeStream.on('finish', () => {  
-        send(wsController, 'info', 'File written.');
-        writeStream = null;
-    });
-}
+// export class CommeUnDessein {
 
-let closeFile = ()=> {
-    if(writeStream != null) {
-        writeStream.end();
-    }
-}
+//     static State = {
+//         NextDrawing: "NextDrawing",
+//         RequestedNextDrawing: "RequestedNextDrawing",
+//         Drawing: "Drawing",
+//         SetStatus: "SetStatus",
+//         RequestedSetStatus: "RequestedSetStatus",
+//     }
+    
+//     static RequestTimeout = 2000
+    
+//     CommeUnDesseinSize = new paper.Size(4000, 3000)
+	
+//     mode = 'CommeUnDessein'
+// 	origin = ''
+// 	secret = '******'
+// 	// currentDrawing: { items: any[], pk: string }
+// 	state = CommeUnDessein.State.NextDrawing
 
-let listFiles = ()=> {
-    fs.readdir(folderName, (err, files) => {
-        send(wsController, 'files', files);
-    });
-}
+// 	testMode = false
+// 	started = false
+// 	serverMode = true
+// 	timeoutID = null
 
+// 	constructor() {
+// 	}
 
-let printFile = (fileName)=> {
-    if(port == null) {
-        send(wsController, 'error', 'Could not print data: no opened serial port.');
-        return;
-    }
+//     commeUnDesseinToDrawArea(point) {
+//         let drawArea = tipibot.drawArea.bounds
+//         let CommeUnDesseinPosition = new paper.Point(-CommeUnDesseinSize.width/2, -CommeUnDesseinSize.height/2)
+//         const CommeUnDesseinDrawArea = new paper.Rectangle(CommeUnDesseinPosition, CommeUnDesseinSize)
+//         return point.subtract(CommeUnDesseinDrawArea.topLeft).divide(CommeUnDesseinDrawArea.size).multiply(drawArea.size).add(drawArea.topLeft)
+//     }
+    
+//     requestNextDrawing() {
+            
+//         if(this.state != State.NextDrawing) {
+//             console.error('CommeUnDessein trying to request next drawing while not in NextDrawing state')
+//             return
+//         }
 
-    lineReader = readline.createInterface( { input: fs.createReadStream(folderName + fileName) } );
+//         let args = {
+//             cityName: this.mode, secret: this.secret
+//         }
+//         let functionName = this.testMode ? 'getNextTestDrawing' : 'getNextValidatedDrawing'
+//         let data = {
+//             data: JSON.stringify({ function: functionName, args: args })
+//         }
+//         this.state = State.RequestedNextDrawing
+        
+//         console.log('Request next drawing...')
 
-    lineReader.on('line', function (line) {
-        lineReader.pause();
-        if(port == null) {
-            send(wsController, 'error', 'Could not print data: no opened serial port (while printing).');
-            return;
-        }
+//         // let url = this.testMode ? 'http://localhost:8000/ajaxCallNoCSRF/' : commeundesseinAjaxURL
+//         let url = this.origin + commeundesseinAjaxURL
+//         // $.ajax({ method: "GET", url: url, data: data, xhrFields: { withCredentials: false }, headers: {'Access-Control-Allow-Origin':true} }).done((results) => {
+    
+//         $.ajax({ method: "POST", url: url, data: data }).done((results) => {
+//             if(this.testMode) {
+//                 console.log(results)
+//             }
+//             if (results.message == 'no path') {
+//                 this.state = State.NextDrawing
+//                 console.log('There are no path to draw. Request next drawing in a few seconds...')
+//                 if(this.started) {
+//                     clearTimeout(this.timeoutID)
+//                     this.timeoutID = setTimeout(() => this.requestNextDrawing(), CommeUnDessein.RequestTimeout)
+//                 }
+//                 return
+//             }
+//             if(this.state != State.RequestedNextDrawing) {
+//                 console.error('CommeUnDessein trying to set to draw while not in RequestedNextDrawing state')
+//                 return
+//             }
+//             this.drawSVG(results)
+//             return
+//         }).fail((results) => {
+//             console.error('getNextValidatedDrawing request failed')
+//             console.error(results)
+//             this.state = State.NextDrawing
+//             if(this.started) {
+//                 clearTimeout(this.timeoutID)
+//                 this.timeoutID = setTimeout(() => this.requestNextDrawing(), CommeUnDessein.RequestTimeout)
+//             }
+//         })
+//     }
 
-        port.write(data, portWriteCallback);
-    });
+//     drawSVG(results) {
+//         if (results.state == 'error') {
+//             console.log(results)
+//             return
+//         }
+//         this.state = State.Drawing
+//         this.currentDrawing = results
 
+//         let drawing = new paper.Group()
 
-    lineReader.on('close', function () {
-        send(wsController, 'file-printed', fileName);
-        lineReader = null;
-    })
-}
+//         paper.project.importSVG(results.svg, (item, svg)=> {
+//             if(item.visible == false) {
+//                 console.error('When receiving next validated drawing: while importing SVG: the imported item is not visible: ignore.')
+//                 return
+//             }
+//             for (let path of item.children) {
 
-let cancelPrintFile = ()=> {
-    if(lineReader != null) {
-        lineReader.close();
-    }
-}
+//                 if(path.className != 'Path') {
+//                     continue
+//                 }
 
-let deleteFile = (fileName)=> {
-    fs.unlink(folderName + fileName, (err) => {
-        if (err) {
-            send(wsController, 'error', 'Error while deleting file ' + fileName);
-            send(wsController, 'error', err);
-            return
-        };
-        send(wsController, 'info', fileName + ' deleted.');
-        listFiles();
-    });
-}
+//                 // Ignore anything that humans can't see to avoid hacks
+//                 let strokeColor = path.strokeColor
+//                 if(path.strokeWidth <= 0.2 || path.strokeColor == 'white' || path.strokeColor == null || path.opacity <= 0.1 || strokeColor.alpha <= 0.2 || !path.visible) {
+//                     continue
+//                 }
+
+//                 let controlPath = path.clone()
+
+//                 controlPath.flatten(Settings.plot.flattenPrecision)
+                
+//                 // now that controlPath is flattened: convert in draw area coordinates
+//                 for(let segment of controlPath.segments) {
+//                     segment.point = commeUnDesseinToDrawArea(segment.point)
+//                 }
+//                 drawing.addChild(controlPath)
+//             }
+//             item.remove()
+//             if(SVGPlot.svgPlot != null) {
+//                 SVGPlot.svgPlot.destroy()
+//             }
+//             SVGPlot.svgPlot = new SVGPlot(drawing)
+//             SVGPlot.svgPlot.plot(() => this.setDrawingStatusDrawn(results.pk))
+//         })
+//     }
+
+//     setDrawingStatusDrawn(pk) {
+//         if(visualFeedback.paths.children.length > 0) {
+//             visualFeedback.paths.removeChildren()
+//         }
+
+//         if(this.state != State.Drawing) {
+//             console.error('CommeUnDessein trying to setDrawingStatusDrawn while not in Drawing state')
+//             return
+//         }
+
+//         let args = {
+//             pk: pk,
+//             secret: this.secret
+//         }
+//         let functionName = this.testMode ? 'setDrawingStatusDrawnTest' : 'setDrawingStatusDrawn'
+//         let data = {
+//             data: JSON.stringify({ function: functionName, args: args })
+//         }
+//         this.state = State.RequestedSetStatus
+
+//         if(this.testMode) {
+//             console.log('setDrawingStatusDrawn')
+//         }
+
+//         let url = this.origin + commeundesseinAjaxURL
+//         $.ajax({ method: "POST", url: url, data: data }).done((results) => {
+//             console.log(results)
+//             if(this.testMode) {
+//                 console.log(results)
+//             }
+//             if (results.state == 'error') {
+//                 console.error(results)
+//                 return
+//             }
+//             if(this.state != State.RequestedSetStatus) {
+//                 console.error('CommeUnDessein trying to requestNextDrawing while not in RequestedSetStatus state')
+//                 return
+//             }
+//             this.state = State.NextDrawing
+//             if(this.started) {
+//                 this.requestNextDrawing()
+//             }
+//             return
+//         }).fail((results) => {
+//             console.error('setDrawingStatusDrawn request failed')
+//             console.error(results)
+//             this.state = State.Drawing
+//             if(this.started) {
+//                 this.setDrawingStatusDrawn(pk)
+//             }
+//         })
+//     }
+
+//     // From SVG Plot
+
+// 	itemMustBeDrawn(item) {
+// 		return (item.strokeWidth > 0 && item.strokeColor != null) // || item.fillColor != null
+// 	}
+
+// 	moveTipibotLinear(segment) {
+// 		let point = segment.point
+// 		let minSpeed = 0
+// 		// if(Settings.plot.fullSpeed) {
+// 		// 	minSpeed = speeds[segment.index]
+// 		// 	// let speedRatio = minSpeed / Settings.tipibot.maxSpeed
+// 		// 	// let circle = paper.Path.Circle(point, 4)
+// 		// 	// circle.fillColor = <any> { hue: speedRatio * 240, saturation: 1, brightness: 1 }
+// 		// }
+// 		tipibot.moveLinear(point, minSpeed, Settings.tipibot.drawSpeed, ()=> tipibot.pen.setPosition(point, true, false), false)
+// 	}
+
+// 	plotPath(path) {
+// 		if(path.className != 'Path' || !itemMustBeDrawn(path) || path.segments == null) {
+// 			return
+// 		}
+// 		// let speeds = Settings.plot.fullSpeed ? this.computeSpeeds(path) : null
+
+// 		for(let segment of path.segments) {
+// 			let point = segment.point
+
+// 			if(segment == path.firstSegment) {
+// 				if(!tipibot.lastSentPosition.equals(point)) {
+// 					tipibot.penUp()
+// 					tipibot.moveDirect(point, ()=> tipibot.pen.setPosition(point, true, false), false)
+// 				}
+// 				tipibot.penDown()
+// 			} else {
+// 				// this.moveTipibotLinear(segment, speeds)
+// 				this.moveTipibotLinear(segment)
+// 			}
+// 		}
+// 		if(path.closed) {
+// 			// this.moveTipibotLinear(path.firstSegment, speeds)
+// 			this.moveTipibotLinear(path.firstSegment)
+// 		}
+// 	}
+
+// 	plotCurrentPath() {
+// 		this.plotPath(this.currentPath)
+// 		this.nSegments += this.currentPath.segments.length
+// 		let currentPath = this.currentPath.nextSibling
+// 		if(currentPath != null) {
+// 			let currentColor = this.getColorCSS(this.currentPath.strokeColor)
+// 			let nextColor = this.getColorCSS(currentPath.strokeColor)
+// 			if(currentColor != null && nextColor != null && currentColor != nextColor) {
+// 				let wasPenUp = tipibot.pen.isUp
+// 				tipibot.penUp()
+// 				tipibot.sendChangePen(nextColor, this.currentColorIndex++)
+// 				if(!wasPenUp) {
+// 					tipibot.penDown()
+// 				} 
+// 			}
+// 		}
+// 		this.currentPath = currentPath
+// 	}
+
+// 	plotAll() {
+// 		this.nSegments = 0
+// 		while(this.currentPath != null) {
+// 			this.plotCurrentPath()
+// 		}
+// 		communication.interpreter.startQueue()
+// 	}
+// }
+
+// let commeUnDessein = new CommeUnDessein()
 
 // SIMULATOR
 
