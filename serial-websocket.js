@@ -19,7 +19,7 @@ send = (ws, type, data, portName)=> {
 let createPort = (data)=> {
     let portName = data.name
     console.log('Opening port ' + portName + ', at ' + data.baudRate)
-    if(availablePorts instanceof Array && !availablePorts.includes(portName)) {
+    if(availablePorts instanceof Array &&  availablePorts.findIndex((value, index, obj)=> value.path == portName) < 0) {
         console.error('trying to connect to an unexisting port: ', portName)
     }
 
@@ -74,6 +74,7 @@ let listPortsCallback = (data)=> {
             for(let openedPort of Object.keys(ports)) {
                 // If the opened port is not in the list: close it (set port[portName] to null)
                 if( availablePorts.findIndex((value, index, obj)=> value.path == openedPort) < 0) {
+                    console.log('Found opened port which is not in list anymore:', portName)
                     closePort(openedPort)
                 }
             }
@@ -86,13 +87,14 @@ let closePort = (portName)=> {
     if(ports[portName] != null) {
         console.log('Closing port...')
         ports[portName].close((result)=>closePortCallback(portName, result))
+        ports[portName] = null
     } else {
         console.log('Could not close port:', portName, ' is not opened.')
     }
 }
 
 let closePortCallback = (portName, result)=> {
-    console.log('Port', portName, 'closed: ', result)
+    console.log('Port', portName, 'closed')
     send(wsController, 'closed', portName, portName)
     ports[portName] = null
 }
