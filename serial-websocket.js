@@ -74,7 +74,7 @@ let listPortsCallback = (data)=> {
             for(let openedPort of Object.keys(ports)) {
                 // If the opened port is not in the list: close it (set port[portName] to null)
                 if( availablePorts.findIndex((value, index, obj)=> value.path == openedPort) < 0) {
-                    console.log('Found opened port which is not in list anymore:', portName)
+                    console.log('Found opened port which is not in list anymore:', openedPort)
                     closePort(openedPort)
                 }
             }
@@ -141,8 +141,9 @@ let onControllerMessage = (message)=> {
             return;
         }
         send(wsController, 'sent', data, portName)
-        ports[portName].write(data, portWriteCallback)
-        
+        if(data != null) {
+            ports[portName].write(data, portWriteCallback)
+        }
     } else if(type == 'list') {
         listPorts(wsController)
     } else if(type == 'is-connected') {
