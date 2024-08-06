@@ -46,7 +46,7 @@ if(args.length > 0) {
 console.log('Usign printer address:', printerAddress)
 
 const drawingName = 'drawing.png';
-const printerArgs = ['-m', 'peripage', '-m', printerAddress, '-p', 'A6', '-b', '100', '-c', '2', '-i', drawingName];
+const printerArgs = ['-m', printerAddress, '-p', 'A6', '-b', '100', '-c', '2', '-i', drawingName];
 
 send = (ws, type, data, portName)=> {
     if(ws != null) {
@@ -203,7 +203,7 @@ let onControllerMessage = (message)=> {
                 console.error(err);
             }
             
-            execFile('python', printerArgs, (error, stdout, stderr) => {
+            execFile('peripage', printerArgs, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`Error: ${error.message}`);
                     return;
