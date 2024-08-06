@@ -1,4 +1,8 @@
 const WebSocket = require('ws');
+const fs = require('fs');
+const { execFile, execSync } = require('child_process');
+
+const args = process.argv.slice(2);
 
 let wssSimulator = null;
 let wssController = null;
@@ -9,6 +13,40 @@ let wsController = null;
 var SerialPort = require('serialport');
 var ports = {};
 var availablePorts = [];
+
+let printerAddress = null
+if(args.length > 0) {
+    printerAddress = args[0];
+} else {
+
+    try {
+        // Execute the hcitool scan command synchronously
+        const output = execSync('hcitool scan', { encoding: 'utf-8' });
+
+        // Print the raw output for debugging
+        console.log('Raw output:', output);
+
+        // Use a regular expression to extract the Bluetooth address
+        const regex = /([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})/;
+        const match = output.match(regex);
+
+        if (match) {
+            printerAddress = match[0];
+            console.log('Printer Address:', printerAddress);
+        } else {
+            console.log('No Bluetooth address found.');
+            process.exit(1);
+        }
+    } catch (error) {
+        console.error('Error executing hcitool scan:', error.message);
+        process.exit(1);
+    }
+}
+
+console.log('Usign printer address:', printerAddress)
+
+const drawingName = 'drawing.png';
+const printerArgs = ['-m', printerAddress, '-p', 'A6', '-b', '100', '-c', '2', '-i', drawingName];
 
 send = (ws, type, data, portName)=> {
     if(ws != null) {
@@ -159,6 +197,27 @@ let onControllerMessage = (message)=> {
 
     } else if(type == 'close') {
         closePort(portName)
+    } else if(type == 'print-file') {
+        fs.writeFile(drawingName, Buffer.from(data.content, 'base64'), err => {
+            if (err) {
+                console.error(err);
+            }
+            
+            execFile('peripage', printerArgs, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Error: ${error.message}`);
+                    return;
+                }
+            
+                if (stderr) {
+                    console.error(`Standard Error: ${stderr}`);
+                    return;
+                }
+            
+                console.log(`Standard Output: ${stdout}`);
+            });
+
+        });
     }
 }
 
