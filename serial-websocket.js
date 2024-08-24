@@ -39,6 +39,7 @@ if(args.length > 0) {
         }
     } catch (error) {
         console.error('Error executing hcitool scan:', error.message);
+        console.error('Provide an address as argument to skip printer address scan.');
         process.exit(1);
     }
 }
