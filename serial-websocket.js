@@ -192,7 +192,7 @@ let onControllerMessage = (message)=> {
             return;
         }
         if(ports[portName] == null) {
-            send(wsController, 'error', 'Could not data: port not opened.', portName)
+            send(wsController, 'error', 'Could not send data: port not opened.', portName)
             return;
         }
         send(wsController, 'sent', data, portName)
