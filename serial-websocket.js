@@ -47,7 +47,7 @@ if(args.length > 0) {
 console.log('Usign printer address:', printerAddress)
 
 const drawingName = 'drawing.png';
-const printerArgs = ['-m', printerAddress, '-p', 'A6', '-b', '100', '-c', '2', '-i', drawingName];
+const printerArgs = ['-m', printerAddress, '-p', 'A6p', '-b', '100', '-c', '2', '-i', drawingName];
 
 send = (ws, type, data, portName)=> {
     if(ws != null) {
@@ -151,6 +151,22 @@ let getPortInfo = (portName)=> {
     return port != null ? {baudRate: port.baudRate, isOpen: port.isOpen, path: port.path} : {}
 }
 
+let execFileAndLog = (pArgs)=> {
+    execFile('peripage', pArgs, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error: ${error.message}`);
+            return;
+        }
+    
+        if (stderr) {
+            console.error(`Standard Error: ${stderr}`);
+            return;
+        }
+    
+        console.log(`Standard Output: ${stdout}`);
+    });
+}
+
 let onControllerMessage = (message)=> {
     let type = null;
     let data = null;
@@ -198,26 +214,16 @@ let onControllerMessage = (message)=> {
 
     } else if(type == 'close') {
         closePort(portName)
+    } else if(type == 'awake-printer') {
+
+        const printerAwakeArgs = ['-m', printerAddress, '-p', 'A6p', '-e'];
+        execFileAndLog(printerAwakeArgs)
     } else if(type == 'print-file') {
         fs.writeFile(drawingName, Buffer.from(data.content, 'base64'), err => {
             if (err) {
                 console.error(err);
             }
-            
-            execFile('peripage', printerArgs, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`Error: ${error.message}`);
-                    return;
-                }
-            
-                if (stderr) {
-                    console.error(`Standard Error: ${stderr}`);
-                    return;
-                }
-            
-                console.log(`Standard Output: ${stdout}`);
-            });
-
+            execFileAndLog(printerArgs)
         });
     }
 }
