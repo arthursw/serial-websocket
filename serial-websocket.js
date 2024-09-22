@@ -235,7 +235,12 @@ let onControllerMessage = (message)=> {
             fs.copyFile(drawingName, newDrawingName, (err) => {
                 if (err) { console.error(err); }
             });
-        });
+        })
+    } else if(type == 'write-file') {
+        let newDrawingName = 'drawing_' + Date.now() + '.svg'
+        fs.writeFile(newDrawingName, data.content, err => {
+            if (err) { console.error(err); }
+        })
     }
 }
 
