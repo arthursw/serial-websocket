@@ -229,10 +229,12 @@ let onControllerMessage = (message)=> {
         callPrinter(printerAwakeArgs)
     } else if(type == 'print-file') {
         fs.writeFile(drawingName, Buffer.from(data.content, 'base64'), err => {
-            if (err) {
-                console.error(err);
-            }
+            if (err) { console.error(err); }
             callPrinter(printerArgs)
+            let newDrawingName = 'drawing_' + Date.now() + '.png'
+            fs.copyFile(drawingName, newDrawingName, (err) => {
+                if (err) { console.error(err); }
+            });
         });
     }
 }
