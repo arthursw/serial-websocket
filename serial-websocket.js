@@ -170,7 +170,7 @@ let execFileAndLog = (pArgs)=> {
 let lastCallDate = Date.now();
 let callPrinter = (pArgs)=> {
     let now = Date.now()
-    if(now - lastCallDate > 30 * 1000) {
+    if(now - lastCallDate > 15 * 1000) {
         execFileAndLog(pArgs)
         lastCallDate = now;
     }
