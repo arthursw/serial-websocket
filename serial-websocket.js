@@ -167,6 +167,15 @@ let execFileAndLog = (pArgs)=> {
     });
 }
 
+let lastCallDate = Date.now();
+let callPrinter = (pArgs)=> {
+    let now = Date.now()
+    if(now - lastCallDate > 30 * 1000) {
+        execFileAndLog(pArgs)
+        lastCallDate = now;
+    }
+}
+
 let onControllerMessage = (message)=> {
     let type = null;
     let data = null;
@@ -217,13 +226,13 @@ let onControllerMessage = (message)=> {
     } else if(type == 'awake-printer') {
 
         const printerAwakeArgs = ['-m', printerAddress, '-p', 'A6p', '-e'];
-        execFileAndLog(printerAwakeArgs)
+        callPrinter(printerAwakeArgs)
     } else if(type == 'print-file') {
         fs.writeFile(drawingName, Buffer.from(data.content, 'base64'), err => {
             if (err) {
                 console.error(err);
             }
-            execFileAndLog(printerArgs)
+            callPrinter(printerArgs)
         });
     }
 }
